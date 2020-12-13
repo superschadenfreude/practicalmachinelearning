@@ -1,0 +1,105 @@
+---
+title: "Predicting barbell fits with R. Machine learning Final Project"
+author: "AT"
+date: "12/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  cache=TRUE)
+```
+
+
+###Introduction
+Many weareables that are currently available in the market  have made possible to track the body movements for different activities. With this technology at hand, the Groupware (1) has kindly share a set of barbell movements that were recorded with 4 weareables devices (arm, belt, forearm and dumbell). Thus the objective for this project is to predict  if the barbell movement was done correctly or just partially, based on the wearable's readings.
+
+### WLE dataset
+The Weight Lifting Exercises dataset (1) provided for the project is a training set (19622 observations and 160 variables) and a test set for the final quiz.
+The variables are mostly the accelerometers, gyroscopes, yawn and magents for each 4 sensors + the id for each 6 participant and the frame times.
+Each sensor measured one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl for each participant.
+
+The variable to predict is the "classe" variable. This variable is ranked: A (wel executed) and from B to D (different lift exercises errors).
+
+### Exploring and cleaning data.
+
+**Note** The R code is not showed due the final project guideline restriction.
+
+The first step is to explore the data.
+
+```{r 1.0, echo=FALSE}
+library(caret)
+setwd("~/Documents/EDUCACIÓN/SELF LEARNING/COURSERA/Machine Learning/Week 4/Final project")
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+set.seed (2021)
+s <- sample(160,9)
+str(training[,s])
+```
+As we can see in this sample,  there are many columns that are "dummie" (only contains NA values)
+I remove the columns that were all NA.
+```{r 2.0, echo=FALSE}
+train1 <- training[colSums(!is.na(testing)) > 0]
+str(train1[,1:7])
+```
+Now the DF is reduced to 60 variables. Reviewing again the variables, we can see that the firts seven variables are related to the ID of the participants, ID for classification or the time the reading was obtained. None of this variables have a real impact in the predictions and are eliminated.
+```{r 3.0, echo=FALSE}
+ t1 <- train1[,-c(1:7)]
+``` 
+With the set reduced to 53 variables now is possible to start the algorithm. 
+```{r 3.1, echo=FALSE}
+dim(t1)
+``` 
+### Prediction algorithm.
+Teh first step is to create a training set and a test set, using the 75% of the data as training.
+
+```{r 4.0, echo=FALSE}
+ intrain <- createDataPartition(y=t1$classe, p=0.75, list = F)
+train2 <- t1[intrain,]
+test2  <- t1[-intrain,]
+``` 
+Then I will  train the data set with the random forrest technique. Some notes before continuing:  
+ * Random Forrest will be used because its ability to improve accuracy faster and reduce variance, but requires more computational power.  
+ * After my first 2 attempts (waiting more than 2 hours), I implemented a parallel process (2) to improve dramatically the computational time.  
+ * Optimizing the compuitng time, the folds for k-fold cross-validation was set to 5.
+
+```{r 5.0, echo=FALSE}
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1) 
+registerDoParallel(cluster)
+fitControl <- trainControl(method = "cv",number = 5, allowParallel = TRUE)
+
+``` 
+Optimized the computing time, the dataset was trained for the "classe" variable.
+
+```{r 6.0, echo=FALSE}
+ModelRF<- train(classe ~ ., method = "rf", data = train2, verbose=F, trControl = fitControl)
+print(ModelRF)
+``` 
+Then the trained model was tested with the test data 
+```{r 7.0, echo=FALSE}
+predictRF <- predict(ModelRF,test2)
+``` 
+Finally the accuracy is obtained vía a confusion Matrix
+
+```{r 8.0, echo=FALSE}
+CM_RF  <-confusionMatrix(test2$classe, predictRF)
+CM_RF$overall["Accuracy"]
+CM_RF[["table"]]
+``` 
+As we can see, the accuracy is very high (+99%), which makes difficult to choose another method.
+
+###Conclusion
+It was necesary a previous data exploration before apply any ML technique. 
+With 53 variables was possible to predict with a very high accuracy the classe or type of barbell fit based on a random forrest technique. 
+From the accuracy table we can see for all the predictions we have a very high accuracy rate.
+Random forrest brought a high accurate result.
+Without paralleel process, the computing time would be 10x.
+
+
+###References
+1 Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Stuttgart, Germany: ACM SIGCHI, 2013.
+
+2 https://github.com/lgreski/datasciencectacontent/blob/master/markdown/pml-randomForestPerformance.md    
+
+
